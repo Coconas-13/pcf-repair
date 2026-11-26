@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>แจ้งซ่อม</title>
+<style>
+:root{--navy:#163A5F;--ink:#17212B;--mut:#4A5866;--line:#D5DCE3;--bg:#F3F6F8;--green:#06C755;--org:#C2410C;--orgt:#FDEBDF;--teal:#0F766E;--tealt:#DDF1EE;--red:#B42318}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI","Sarabun","Noto Sans Thai",sans-serif;font-size:16px;line-height:1.5}
+header{background:var(--navy);color:#fff;padding:14px 16px}
+header h1{margin:0;font-size:20px}
+header p{margin:2px 0 0;font-size:13px;color:#C9D6E3}
+main{padding:14px 16px 110px;display:flex;flex-direction:column;gap:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+label.t{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+.req{color:var(--red)}
+.mc{font-size:20px;font-weight:700}
+.mcn{font-size:14px;color:var(--mut)}
+input[type=text],input[type=time],textarea{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+textarea{min-height:84px;resize:vertical}
+input:focus,textarea:focus{outline:2px solid #1D4ED8;outline-offset:0;border-color:#1D4ED8}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer}
+.opt input{margin-top:4px;width:18px;height:18px;flex:none}
+.opt b{display:block;font-size:15px}
+.opt span{font-size:13px;color:var(--mut)}
+.opt.on.bm{border-color:var(--org);background:var(--orgt)}
+.opt.on.cm{border-color:var(--teal);background:var(--tealt)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:7px 14px;border:1.5px solid var(--line);border-radius:999px;font-size:14px;cursor:pointer;background:#fff}
+.chip.on{border-color:var(--navy);background:var(--navy);color:#fff}
+.err{color:var(--red);font-size:13px;margin-top:6px;display:none}
+.hint{font-size:13px;color:var(--mut);margin-top:6px}
+pre{margin:0;white-space:pre-wrap;font:inherit;font-size:14px;background:var(--bg);border-radius:8px;padding:8px 10px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.bar button{width:100%;font:inherit;font-size:17px;font-weight:700;padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff}
+.bar button:disabled{background:#9AA6B2}
+.msg{padding:14px;border-radius:12px;font-size:15px}
+.ok{background:var(--tealt);color:#134E4A}
+.bad{background:#FDECEC;color:var(--red)}
+.hide{display:none!important}
+</style>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+<header>
+<h1>แจ้งซ่อม</h1>
+<p id="sub">กรอกอาการ แล้วกดส่งเข้ากลุ่ม</p>
+</header>
+
+<main id="app">
+<div id="loading" class="msg">กำลังเปิดฟอร์ม…</div>
+
+<form id="f" class="hide" novalidate>
+<div class="card">
+<label class="t">เครื่อง <span class="req">*</span></label>
+<div id="mcFixed" class="hide"><div class="mc" id="mcCode"></div><div class="mcn" id="mcName"></div></div>
+<div id="mcFree" class="hide">
+<input type="text" id="mcInput" placeholder="PM-02" autocomplete="off" autocapitalize="characters">
+<div class="hint">QR นี้ไม่ได้ผูกเครื่อง ให้พิมพ์รหัสเครื่องตามป้ายที่เครื่อง</div>
+</div>
+<div class="err" id="eMc">ใส่รหัสเครื่อง</div>
+</div>
+
+<div class="card">
+<label class="t" for="sym">อาการ <span class="req">*</span></label>
+<textarea id="sym" maxlength="200" placeholder="มอเตอร์ร้อน มีกลิ่นไหม้"></textarea>
+<div class="err" id="eSym">ใส่อาการที่พบ</div>
+</div>
+
+<div class="card">
+<label class="t">สถานะไลน์ผลิต <span class="req">*</span></label>
+<div class="opts" id="st">
+<label class="opt bm"><input type="radio" name="st" value="BM"><div><b>ไลน์ผลิตหยุด</b><span>เปิดเป็น BM P1 แจ้งหัวหน้าทันที</span></div></label>
+<label class="opt cm"><input type="radio" name="st" value="MC"><div><b>เครื่องหยุด แต่ไลน์ยังเดิน</b><span>เปิดเป็น CM</span></div></label>
+<label class="opt cm"><input type="radio" name="st" value="CM"><div><b>ยังเดินได้ แต่ผิดปกติ</b><span>เปิดเป็น CM</span></div></label>
+</div>
+<div class="err" id="eSt">เลือกสถานะไลน์ผลิต</div>
+<div id="stopBox" class="hide" style="margin-top:10px">
+<label class="t" for="stopAt">หยุดตั้งแต่ (ไม่บังคับ)</label>
+<input type="time" id="stopAt">
+<div class="hint">เว้นว่าง = หยุดตอนกดส่ง</div>
+</div>
+</div>
+
+<div class="card">
+<label class="t">เกี่ยวกับความปลอดภัยไหม</label>
+<div class="chips" id="sf">
+<span class="chip on" data-v="">ไม่เกี่ยว</span>
+<span class="chip" data-v="Safety">Safety</span>
+<span class="chip" data-v="Food Safety">Food Safety</span>
+</div>
+<div class="hint">Safety / Food Safety = P1 ทันที</div>
+</div>
+
+<div class="card">
+<label class="t">ข้อความที่จะส่งเข้ากลุ่ม</label>
+<pre id="pv"></pre>
+<div class="hint" id="grpHint"></div>
+</div>
+</form>
+
+<div id="done" class="msg ok hide"></div>
+<div id="fail" class="msg bad hide"></div>
+<div id="fallback" class="card hide">
+<div style="font-size:14px;margin-bottom:8px">ส่งผ่านหน้าเลือกกลุ่มไม่ได้ ให้คัดลอกข้อความแล้ววางในกลุ่มแจ้งซ่อมเอง</div>
+<pre id="fbText"></pre>
+<div class="chips" style="margin-top:10px"><span class="chip on" id="copyBtn">คัดลอกข้อความ</span><span class="chip" id="shareBtn">เปิดหน้าแชร์ของ LINE</span></div>
+</div>
+</main>
+
+<div class="bar hide" id="bar"><button type="button" id="send">ส่งแจ้งซ่อม</button></div>
+
+<script>
+/* ===== ตั้งค่า (แก้ 2 บรรทัดนี้) ===== */
+const LIFF_ID = '2012816419-mPhjDQ2C';   // จาก LINE Developers > LIFF
+const GROUP_NAME = 'แจ้งซ่อม';       // ชื่อกลุ่ม LINE ที่มีบอท (ใช้แสดงคำแนะนำ)
+/* ================================== */
+
+const $ = id => document.getElementById(id);
+let machine = '', machineName = '', safety = '';
+
+function show(id, on) { $(id).classList.toggle('hide', !on); }
+function oneLine(t) { return String(t || '').replace(/\s*\n+\s*/g, ' ').trim(); }
+function status() { const r = document.querySelector('input[name=st]:checked'); return r ? r.value : ''; }
+
+function buildText() {
+  const mc = machine || oneLine($('mcInput').value).toUpperCase();
+  const st = status();
+  const lines = ['#แจ้งซ่อม', 'เครื่อง: ' + mc, 'อาการ: ' + oneLine($('sym').value)];
+  if (st === 'BM') {
+    lines.push('ไลน์หยุด: ใช่');
+    if ($('stopAt').value) lines.push('เวลาหยุด: ' + $('stopAt').value);
+  } else if (st === 'MC') {
+    lines.push('หยุดเครื่อง: ใช่', 'ไลน์หยุด: ไม่');
+  } else if (st === 'CM') {
+    lines.push('ไลน์หยุด: ไม่');
+  }
+  if (safety) lines.push('ความปลอดภัย: ' + safety);
+  return lines.join('\n');
+}
+
+function refresh() {
+  document.querySelectorAll('.opt').forEach(o => o.classList.toggle('on', o.querySelector('input').checked));
+  show('stopBox', status() === 'BM');
+  $('pv').textContent = buildText();
+}
+
+function validate() {
+  let ok = true;
+  const mc = machine || oneLine($('mcInput').value);
+  $('eMc').style.display = mc ? 'none' : 'block'; if (!mc) ok = false;
+  const sym = oneLine($('sym').value);
+  $('eSym').style.display = sym ? 'none' : 'block'; if (!sym) ok = false;
+  $('eSt').style.display = status() ? 'none' : 'block'; if (!status()) ok = false;
+  return ok;
+}
+
+function fallback(text) {
+  $('fbText').textContent = text;
+  show('fallback', true);
+  $('copyBtn').onclick = () => {
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+      .then(() => { $('copyBtn').textContent = 'คัดลอกแล้ว'; })
+      .catch(() => { $('copyBtn').textContent = 'กดค้างที่ข้อความเพื่อคัดลอก'; });
+  };
+  $('shareBtn').onclick = () => {
+    const url = 'https://line.me/R/share?text=' + encodeURIComponent(text);
+    try { liff.openWindow({ url: url, external: false }); } catch (e) { location.href = url; }
+  };
+}
+
+async function send() {
+  if (!validate()) { refresh(); return; }
+  const text = buildText();
+  $('send').disabled = true; $('send').textContent = 'กำลังเปิดหน้าเลือกกลุ่ม…';
+  try {
+    if (!liff.isApiAvailable('shareTargetPicker')) throw new Error('shareTargetPicker ใช้ไม่ได้ในเครื่องนี้');
+    const res = await liff.shareTargetPicker([{ type: 'text', text: text }], { isMultiple: false });
+    if (res) {
+      show('f', false); show('bar', false);
+      $('done').innerHTML = '<b>ส่งแล้ว</b><br>รอบอทตอบเลข WO ในกลุ่ม ถ้ามีรูปอาการ กดปุ่ม แนบรูป แล้วส่งภายใน 1 นาที';
+      show('done', true);
+      if (liff.isInClient()) setTimeout(() => liff.closeWindow(), 3000);
+    } else {
+      $('send').disabled = false; $('send').textContent = 'ส่งแจ้งซ่อม';
+      $('fail').textContent = 'ยังไม่ได้ส่ง: กดส่งอีกครั้ง แล้วเลือกกลุ่ม ' + GROUP_NAME;
+      show('fail', true);
+    }
+  } catch (err) {
+    $('send').disabled = false; $('send').textContent = 'ส่งแจ้งซ่อม';
+    $('fail').textContent = 'ส่งไม่สำเร็จ: ' + (err && err.message ? err.message : err);
+    show('fail', true);
+    fallback(text);
+  }
+}
+
+function start() {
+  const q = new URLSearchParams(location.search);
+  machine = oneLine(q.get('m') || '').toUpperCase();
+  machineName = oneLine(q.get('n') || '');
+  if (machine) {
+    $('mcCode').textContent = machine; $('mcName').textContent = machineName;
+    show('mcFixed', true);
+    $('sub').textContent = machine + (machineName ? ' · ' + machineName : '');
+  } else {
+    show('mcFree', true);
+  }
+  $('grpHint').textContent = 'กดส่งแล้วเลือกกลุ่ม "' + GROUP_NAME + '" 1 ครั้ง ข้อความจะส่งในชื่อของคุณ';
+  document.querySelectorAll('input[name=st]').forEach(r => r.addEventListener('change', () => { $('eSt').style.display = 'none'; refresh(); }));
+  ['sym', 'mcInput', 'stopAt'].forEach(id => $(id).addEventListener('input', () => {
+    if (id === 'sym') $('eSym').style.display = 'none';
+    if (id === 'mcInput') $('eMc').style.display = 'none';
+    refresh();
+  }));
+  document.querySelectorAll('#sf .chip').forEach(c => c.addEventListener('click', () => {
+    document.querySelectorAll('#sf .chip').forEach(x => x.classList.remove('on'));
+    c.classList.add('on'); safety = c.dataset.v; refresh();
+  }));
+  $('send').addEventListener('click', send);
+  show('loading', false); show('f', true); show('bar', true);
+  refresh();
+}
+
+liff.init({ liffId: LIFF_ID })
+  .then(() => {
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+    start();
+  })
+  .catch(err => {
+    show('loading', false);
+    $('fail').textContent = 'เปิดฟอร์มไม่ได้: ' + (err && err.message ? err.message : err) + ' (ตรวจ LIFF_ID หรือสแกนด้วยแอป LINE)';
+    show('fail', true);
+  });
+</script>
+</body>
+</html>
