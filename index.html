@@ -47,6 +47,22 @@ pre{margin:0;white-space:pre-wrap;font:inherit;font-size:14px;background:var(--b
 .addpic{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:1.5px dashed var(--line);border-radius:10px;color:var(--navy);font-weight:600;cursor:pointer}
 .addpic input{display:none}
 </style>
+<script>
+/* ตัวตรวจปัญหา: แสดงสาเหตุบนจอแทนการค้างที่ "กำลังเปิดฟอร์ม…" */
+window.__formErr = function (msg) {
+  var l = document.getElementById('loading');
+  if (l) { l.className = 'msg bad'; l.innerHTML = msg; }
+};
+window.addEventListener('error', function (e) {
+  window.__formErr('ฟอร์มมีข้อผิดพลาด: ' + (e.message || 'ไม่ทราบสาเหตุ') + (e.lineno ? ' (บรรทัด ' + e.lineno + ')' : '') +
+    '<br>มักเกิดจากแก้ 3 บรรทัดตั้งค่าแล้วเครื่องหมาย \' หาย หรือกลายเป็น \u2018 \u2019 ให้ใช้ \' ธรรมดา');
+});
+setTimeout(function () {
+  var l = document.getElementById('loading');
+  if (l && !l.classList.contains('hide') && l.className.indexOf('bad') < 0)
+    window.__formErr('ฟอร์มเปิดไม่สำเร็จภายใน 15 วินาที: ตรวจอินเทอร์เน็ต หรือ LIFF_ID ในไฟล์ index.html');
+}, 15000);
+</script>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
@@ -77,7 +93,10 @@ pre{margin:0;white-space:pre-wrap;font:inherit;font-size:14px;background:var(--b
 
 <div class="card">
 <label class="t">รูปอาการ (ถ้ามี)</label>
-<label class="addpic" id="addPic"><input type="file" id="picIn" accept="image/*" multiple>ถ่ายรูป / เลือกรูป</label>
+<div id="addPic" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<label class="addpic"><input type="file" id="camIn" accept="image/*" capture="environment">ถ่ายรูป</label>
+<label class="addpic"><input type="file" id="picIn" accept="image/*" multiple>เลือกจากคลังรูป</label>
+</div>
 <div class="pics" id="pics"></div>
 <div class="hint" id="picHint">สูงสุด 3 รูป ระบบย่อรูปให้อัตโนมัติ</div>
 </div>
@@ -123,6 +142,7 @@ pre{margin:0;white-space:pre-wrap;font:inherit;font-size:14px;background:var(--b
 </div>
 </main>
 
+<div id="ver" style="text-align:center;font-size:12px;color:#9AA6B2;padding:0 0 100px"></div>
 <div class="bar hide" id="bar"><button type="button" id="send">ส่งแจ้งซ่อม</button></div>
 
 <script>
@@ -132,6 +152,7 @@ const GROUP_NAME = 'PCF แจ้งซ่อม';       // ชื่อกล�
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbw4ZjHB6z2D3q60NcYMtDpmXkI0AZIe3PHdEag6N9G6fPNKa9rk11qRKrqjxR2efME/exec'; // URL ของ Apps Script (ลงท้าย /exec) ใช้อัปโหลดรูป
 /* ================================== */
 const MAX_PICS = 3, MAX_SIDE = 1280, JPEG_Q = 0.75;
+const FORM_VERSION = 'ฟอร์ม v35 (27 พ.ย. 69)';
 
 const $ = id => document.getElementById(id);
 let machine = '', machineName = '', safety = '';
@@ -229,7 +250,7 @@ async function addPics(files) {
 async function upload() {
   if (!/^https:\/\/script\.google\.com\//.test(WEBAPP_URL)) throw new Error('ยังไม่ได้ตั้งค่า WEBAPP_URL ในไฟล์ฟอร์ม');
   const idToken = liff.getIDToken();
-  if (!idToken) throw new Error('LIFF ต้องเปิด scope openid');
+  if (!idToken) throw new Error('ยังไม่ได้รับสิทธิ์ openid: ผู้ดูแลต้องติ๊ก openid ใน LIFF แล้วผู้แจ้งต้องลบสิทธิ์แอปเดิมใน LINE (ตั้งค่า > บัญชี > แอปที่อนุญาต) แล้วสแกนใหม่');
   const res = await fetch(WEBAPP_URL, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action: 'upload', idToken: idToken, machine: machine || oneLine($('mcInput').value), photos: pics.map(d => d.split(',')[1]) })
@@ -300,20 +321,24 @@ function start() {
     c.classList.add('on'); safety = c.dataset.v; refresh();
   }));
   $('send').addEventListener('click', send);
-  $('picIn').addEventListener('change', e => { addPics(e.target.files); e.target.value = ''; });
+  ['picIn', 'camIn'].forEach(id => $(id).addEventListener('change', e => { addPics(e.target.files); e.target.value = ''; }));
   show('loading', false); show('f', true); show('bar', true);
   refresh();
 }
 
-liff.init({ liffId: LIFF_ID })
+document.getElementById('ver').textContent = FORM_VERSION;
+if (typeof liff === 'undefined') {
+  window.__formErr('โหลดระบบ LINE (LIFF SDK) ไม่ได้: ตรวจอินเทอร์เน็ต แล้วสแกนใหม่');
+} else if (!/^\d{6,}-\w+$/.test(String(LIFF_ID).trim())) {
+  window.__formErr('ยังไม่ได้ใส่ LIFF_ID ในไฟล์ index.html (ตอนนี้เป็น: ' + LIFF_ID + ')');
+} else liff.init({ liffId: String(LIFF_ID).trim() })
   .then(() => {
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
     start();
   })
   .catch(err => {
     show('loading', false);
-    $('fail').textContent = 'เปิดฟอร์มไม่ได้: ' + (err && err.message ? err.message : err) + ' (ตรวจ LIFF_ID หรือสแกนด้วยแอป LINE)';
-    show('fail', true);
+    window.__formErr('เปิดฟอร์มไม่ได้: ' + (err && err.message ? err.message : err) + '<br>ตรวจ LIFF_ID ในไฟล์ให้ตรงกับ LINE Developers และ Endpoint URL ให้ตรงกับลิงก์ GitHub Pages');
   });
 </script>
 </body>
